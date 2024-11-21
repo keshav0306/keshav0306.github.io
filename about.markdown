@@ -5,7 +5,7 @@ permalink: /about/
 ---
 
 # Blog
-Welcome to my blog! Here are some of my recent posts:
+Welcome to my blog! I plan to write blogs on interesting papers that I have read for strengthening my own understanding and for others:
 
 <ul>
   {% for post in site.posts %}
@@ -14,5 +14,3 @@ Welcome to my blog! Here are some of my recent posts:
     </li>
   {% endfor %}
 </ul>
-
-
