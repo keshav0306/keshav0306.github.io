@@ -1,9 +1,10 @@
 ---
 layout: default
+title: Blogssss
 ---
 # Blog
 
-Welcome to my blog! I plan to write blogs on interesting papers that I have read for strengthening my own understanding and for others:
+Welcome to my blog! I plan to write blogs on interesting papers that I have read for strengthening my own understanding and for others, but this is some other page:
 
 <ul>
   {% for post in site.posts %}
