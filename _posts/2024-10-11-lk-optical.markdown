@@ -1,7 +1,6 @@
 ---
 layout: post
 title:  "Lucas Kanade Optical Flow"
-date:   2024-11-21 20:26:41 +0530
 categories: jekyll update
 ---
 
