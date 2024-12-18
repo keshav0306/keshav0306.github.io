@@ -1,0 +1,146 @@
+---
+layout: post
+title:  "Harris Corner Detection"
+date:   2024-11-21 20:26:41 +0530
+categories: jekyll update
+---
+
+# Harris Corner Detection
+
+## Introduction to Corner Detection
+
+Corner detection is a critical task in computer vision and image processing. Corners are special points in an image where two edge directions change significantly.
+
+## Definition
+
+A corner can be defined as a point where there are large intensity changes in multiple directions. The Harris corner detector uses this fundamental insight to identify corners through a clever mathematical approach.
+
+### Methodology
+
+Consider a small window (W) in an image. For each pixel (x,y), we compute a measurement of "cornerness" using the following steps:
+
+1. **Intensity Difference Computation**
+For each pixel (x,y) in the window, compute the intensity difference when the window is shifted by (u,v):
+
+```
+E(u,v) = Σ w(x,y) [I(x+u, y+v) - I(x,y)]²
+```
+
+Where:
+- `I(x,y)` is the image intensity
+- `w(x,y)` is a window function (often a Gaussian)
+- `(u,v)` represents the window shift
+
+2. **Second Moment Matrix**
+The algorithm computes the second moment matrix M:
+
+```
+M = [ Σx,y w(x,y) Ix²   Σx,y w(x,y) Ix * Iy ]
+    [ Σx,y w(x,y) Ix * Iy   Σx,y w(x,y) Iy² ]
+```
+
+Where:
+- `Ix` is the x-direction image gradient
+- `Iy` is the y-direction image gradient
+
+3. **Corner Response**
+The corner response R is computed using the matrix eigenvalues:
+
+```
+R = det(M) - k * (trace(M))²
+```
+
+Where:
+- `det(M)` is λ1 * λ2
+- `trace(M)` is λ1 + λ2
+- `k` is an empirical constant (typically 0.04-0.06)
+
+## Python Implementation
+
+Here's a comprehensive implementation of Harris Corner Detection:
+
+```python
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from scipy.ndimage import gaussian_filter
+
+class HarrisCornerDetector:
+    def __init__(self, k=0.04, window_size=3, threshold=0.01):
+        self.k = k
+        self.window_size = window_size
+        self.threshold = threshold
+    
+    def detect_corners(self, image):
+        if len(image.shape) == 3:
+            gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = image
+        
+        dx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+        dy = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+        
+        ixx = dx**2
+        iyy = dy**2
+        ixy = dx * dy
+        
+        ixx = gaussian_filter(ixx, sigma=1)
+        iyy = gaussian_filter(iyy, sigma=1)
+        ixy = gaussian_filter(ixy, sigma=1)
+        
+        det = (ixx * iyy) - (ixy**2)
+        trace = ixx + iyy
+        r = det - self.k * (trace**2)
+        
+        corner_map = np.zeros_like(r)
+        pad = self.window_size // 2
+        
+        for y in range(pad, r.shape[0] - pad):
+            for x in range(pad, r.shape[1] - pad):
+                window = r[y-pad:y+pad+1, x-pad:x+pad+1]
+                if r[y, x] == np.max(window) and r[y, x] > self.threshold:
+                    corner_map[y, x] = r[y, x]
+        
+        marked_image = image.copy()
+        corners = np.argwhere(corner_map > 0)
+        
+        for corner in corners:
+            cv2.circle(marked_image, (corner[1], corner[0]), 3, (0, 255, 0), -1)
+        
+        return marked_image, corners
+    
+    def visualize_corners(self, image, corners):
+        plt.figure(figsize=(12, 4))
+        
+        plt.subplot(121)
+        plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        plt.title('Original Image')
+        
+        plt.subplot(122)
+        plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+        plt.scatter(corners[:, 1], corners[:, 0], c='r', s=10)
+        plt.title('Detected Corners')
+        
+        plt.tight_layout()
+        plt.show()
+
+def main():
+    image = cv2.imread('yoyo.jpg')
+    
+    harris_detector = HarrisCornerDetector(
+        k=0.04, 
+        window_size=3, 
+        threshold=0.01 
+    )
+    
+    marked_image, corners = harris_detector.detect_corners(image)
+    
+    harris_detector.visualize_corners(image, corners)
+
+if __name__ == '__main__':
+    main()
+```
+
+## Conclusion
+
+Harris Corner Detection provides a mathematically elegant solution for identifying corners in images. By analyzing intensity changes and computing a corner response, it offers a simple technique for feature extraction in computer vision.

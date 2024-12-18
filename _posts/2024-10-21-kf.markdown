@@ -1,0 +1,122 @@
+---
+layout: post
+title:  "Kalman Filters for Tracking"
+date:   2024-11-21 20:26:41 +0530
+categories: jekyll update
+---
+
+## Introduction to Kalman Filters
+
+Kalman filters are powerful algorithms used for estimating the state of a system from noisy measurements. Originally developed by Rudolf Kalman in 1960, these filters have become fundamental in fields like robotics, navigation, signal processing, and computer vision.
+
+At its core, a Kalman filter is a recursive algorithm that uses a series of measurements observed over time, containing statistical noise and other inaccuracies, and produces estimates of unknown variables that tend to be more accurate than a single measurement alone.
+
+## Mathematical Foundation
+
+The Kalman filter operates on a linear system described by two equations:
+
+### 1. State Prediction Equation
+```
+x̂ₖ = Fₖ * x̂ₖ₋₁ + Bₖ * uₖ
+```
+Where:
+- `x̂ₖ` is the predicted state
+- `Fₖ` is the state transition matrix
+- `x̂ₖ₋₁` is the previous state
+- `Bₖ` is the control input matrix
+- `uₖ` is the control input
+
+### 2. Measurement Update Equation
+```
+zₖ = Hₖ * xₖ + vₖ
+```
+Where:
+- `zₖ` is the measurement
+- `Hₖ` is the observation matrix
+- `xₖ` is the true state
+- `vₖ` is the measurement noise
+
+## Kalman Filter Steps
+
+The Kalman filter involves two main steps:
+1. **Prediction**: Estimate the current state based on the previous state
+2. **Update**: Correct the prediction using new measurements
+
+## Python Implementation
+
+Here's a comprehensive Kalman filter implementation in Python:
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+
+class KalmanFilter:
+    def __init__(self, F, H, Q, R, x0, P0):
+        self.F = F  # state transition matrix
+        self.H = H  # observation matrix
+        self.Q = Q  # process noise covariance
+        self.R = R  # measurement noise covariance
+        
+        self.x = x0  # initial state estimate
+        self.P = P0  # initial uncertainty
+        
+        self.x_history = [self.x]
+        self.P_history = [self.P]
+    
+    def predict(self):
+        self.x = np.dot(self.F, self.x)
+        self.P = np.dot(np.dot(self.F, self.P), self.F.T) + self.Q
+        
+        return self.x
+    
+    def update(self, z):
+        y = z - np.dot(self.H, self.x)
+        S = np.dot(np.dot(self.H, self.P), self.H.T) + self.R
+        K = np.dot(np.dot(self.P, self.H.T), np.linalg.inv(S))
+        
+        self.x = self.x + np.dot(K, y)
+        self.P = self.P - np.dot(np.dot(K, self.H), self.P)
+        
+        self.x_history.append(self.x)
+        self.P_history.append(self.P)
+        
+        return self.x
+
+def simulate_tracking():
+    true_positions = np.cumsum(np.random.normal(1, 0.1, 50))
+    measurements = true_positions + np.random.normal(0, 0.5, 50)
+    
+    F = np.array([[1, 1], [0, 1]])  # state transition matrix
+    H = np.array([[1, 0]])  # observation matrix
+    Q = np.eye(2) * 0.01   # process noise
+    R = np.array([[0.5]])  # measurement noise
+    
+    x0 = np.array([0, 0])  # initial state
+    P0 = np.eye(2) * 1000  # initial uncertainty
+    
+    kf = KalmanFilter(F, H, Q, R, x0, P0)
+    
+    estimated_positions = []
+    
+    for z in measurements:
+        kf.predict()
+        est = kf.update(z)
+        estimated_positions.append(est[0])
+    
+    plt.plot(true_positions, label='True Position')
+    plt.plot(measurements, label='Measurements')
+    plt.plot(estimated_positions)
+    plt.legend()
+    plt.show()
+
+simulate_tracking()
+```
+
+## Limitations and Extensions
+
+While powerful, Kalman filters have limitations:
+- Assumes linear systems
+- Requires accurate noise models
+- Performance degrades with non-linear systems
+
+Extended Kalman Filters (EKF) and Unscented Kalman Filters (UKF) address some of these limitations by linearizing non-linear systems.
