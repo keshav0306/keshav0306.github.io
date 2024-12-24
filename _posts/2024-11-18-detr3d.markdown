@@ -1,6 +1,0 @@
----
-layout: post
-title:  "DETR 3D"
-categories: jekyll update
----
-

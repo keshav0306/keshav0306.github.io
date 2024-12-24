@@ -1,0 +1,134 @@
+---
+layout: post
+title:  "Monocular Depth Estimation on NYUv2"
+categories: jekyll update
+---
+
+# Monocular Depth Estimation on NYUv2
+
+## Dataset
+
+The dataset that we will be experimenting is on is the NYUv2 dataset which consists of img and depth pairs captured from a RGBD camera. The depth maps are provided as .png files. An example of this is given below. The dataset contains 48k training images and 654 test images. Some images are visualized below ...
+
+![Example Depth Map](/assets/blogs/mde/nyuv2_sample_1.png)
+![Example Depth Map](/assets/blogs/mde/nyuv2_sample_2.png)
+
+## Metric Of Evaluation
+
+The metrics used for estimating the performance of a model under the task of moncular depth estimation are
+
+- **Absolute Relative error** -
+
+```python
+def abs_relative_difference(output, target, valid_mask=None):
+
+	actual_output = output
+	actual_target = target
+	abs_relative_diff = torch.abs(actual_output - actual_target) / actual_target
+	
+	if valid_mask is not None:
+		abs_relative_diff[~valid_mask] = 0
+		n = valid_mask.sum((-1, -2))
+	else:
+		n = output.shape[-1] * output.shape[-2]
+	
+	abs_relative_diff = torch.sum(abs_relative_diff, (-1, -2)) / n
+	
+	return abs_relative_diff.mean()
+```
+ - **Delta1**  - 
+
+```python
+def threshold_percentage(output, target, threshold_val, valid_mask=None):
+	d1 = output / target
+	d2 = target / output
+	max_d1_d2 = torch.max(d1, d2)
+	zero = torch.zeros(*output.shape)
+	one = torch.ones(*output.shape)
+	
+	bit_mat = torch.where(max_d1_d2.cpu() < threshold_val, one, zero)
+	
+	if valid_mask is not None:
+		bit_mat[~valid_mask] = 0
+		n = valid_mask.sum((-1, -2))
+	else:
+		n = output.shape[-1] * output.shape[-2]
+	
+	count_mat = torch.sum(bit_mat, (-1, -2))
+	threshold_mat = count_mat / n.cpu()
+	
+	return threshold_mat.mean()
+
+def delta1_acc(pred, gt, valid_mask):
+	return threshold_percentage(pred, gt, 1.25, valid_mask)
+```
+
+At the time of writing this, the best performing model on this dataset is ...
+
+## Model
+
+```python
+class MDEModel(nn.Module):
+
+def __init__(self, config):
+
+	super().__init__()
+	self.config = config
+	self.backbone = ResNetEncoder('resnet18')
+	self.residual_convs = nn.ModuleList(
+				[nn.Conv2d(64, 64, kernel_size=3, padding=1),
+				nn.Conv2d(128, 64, kernel_size=3, padding=1),
+				nn.Conv2d(256, 128, kernel_size=3, padding=1),
+				nn.Conv2d(512, 256, kernel_size=3, padding=1),])
+	
+	self.final_conv = nn.Conv2d(64, 1, kernel_size=3, padding=1)
+
+def forward(self, x):
+
+	feats = self.backbone(x)
+	all_feats = []
+	for k, v in feats.items():
+		all_feats.append(v)
+	
+	final_feat = all_feats[-1]
+	for i in range(len(all_feats)-2, 0, -1):
+		final_feat = F.interpolate(self.residual_convs[i](final_feat), scale_factor=2) + all_feats[i]
+	
+	pred_depth = self.final_conv(final_feat + all_feats[0])
+
+	return pred_depth
+```
+
+## Loss Function
+
+```python
+def compute_loss(self, batch):
+
+	img, depth = batch['img'], batch['depth']	
+	pred = self(img)
+	loss = F.mse_loss(pred, depth)
+	
+	return {"loss": loss, "pred_depth": pred}
+```
+
+## Training
+
+The evolution of the metrics looks like this on using a AdamW optimizer with a batch size of 8 and learning rate of 1e-4. The backbone used was resnet18.
+
+![Example Depth Map](/assets/blogs/mde/abs_rel.png)
+![Example Depth Map](/assets/blogs/mde/delta1.png)
+
+After training the delta1 metric goes to roughly 0.73 and the absolute relative difference gets down to roughly 0.179
+
+## Visualization
+
+The visualized depth maps for some images on the validation set look like
+
+![Viz Depth Map](/assets/blogs/mde/vis/0.png)
+![Viz Depth Map](/assets/blogs/mde/vis/1.png)
+![Viz Depth Map](/assets/blogs/mde/vis/2.png)
+![Viz Depth Map](/assets/blogs/mde/vis/3.png)
+![Viz Depth Map](/assets/blogs/mde/vis/4.png)
+![Viz Depth Map](/assets/blogs/mde/vis/5.png)
+![Viz Depth Map](/assets/blogs/mde/vis/6.png)
+![Viz Depth Map](/assets/blogs/mde/vis/7.png)
